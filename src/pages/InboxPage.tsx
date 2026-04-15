@@ -1,77 +1,115 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send, ArrowLeft, Search as SearchIcon } from "lucide-react";
-import { MOCK_CONVERSATIONS, MESSAGE_SHORTCUTS } from "@/lib/mockData";
+import { Send, ArrowLeft, Search as SearchIcon, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useConversations, useMessages, useSendMessage, useMarkMessagesRead } from "@/hooks/useMessages";
+import { useProfileById } from "@/hooks/useProfiles";
 import { UserAvatar } from "@/components/shared/UserAvatar";
+import { MESSAGE_SHORTCUTS } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
+
+function ConversationItem({ convo, userId, onClick }: { convo: any; userId: string; onClick: () => void }) {
+  const otherId = convo.participant_one === userId ? convo.participant_two : convo.participant_one;
+  const { data: otherProfile } = useProfileById(otherId);
+
+  return (
+    <button onClick={onClick} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left">
+      <UserAvatar icon={otherProfile?.avatar_icon || "User"} avatar={otherProfile?.avatar_url} size="md" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-sm truncate">{otherProfile?.name || "User"}</span>
+          <span className="text-[10px] text-muted-foreground">
+            {convo.last_message_time ? new Date(convo.last_message_time).toLocaleDateString() : ""}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground truncate mt-0.5">{convo.last_message || "No messages yet"}</p>
+      </div>
+    </button>
+  );
+}
+
+function ChatView({ conversationId, userId, onBack }: { conversationId: string; userId: string; onBack: () => void }) {
+  const navigate = useNavigate();
+  const [newMessage, setNewMessage] = useState("");
+  const { data: messages, isLoading } = useMessages(conversationId);
+  const sendMessage = useSendMessage();
+  const markRead = useMarkMessagesRead();
+
+  // Mark messages read
+  markRead.mutate({ conversationId, userId });
+
+  const handleSend = () => {
+    if (!newMessage.trim()) return;
+    sendMessage.mutate({ conversationId, senderId: userId, text: newMessage.trim() });
+    setNewMessage("");
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-background flex flex-col animate-fade-in">
+      <div className="flex items-center gap-3 px-4 h-14 border-b border-border bg-card shrink-0">
+        <button onClick={onBack} className="p-1"><ArrowLeft className="h-5 w-5" /></button>
+        <span className="font-semibold text-sm">Chat</span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {isLoading && <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
+        {messages?.map(msg => (
+          <div key={msg.id} className={cn("flex", msg.sender_id === userId ? "justify-end" : "justify-start")}>
+            <div className={cn("max-w-[75%] px-3 py-2 rounded-2xl text-sm", msg.sender_id === userId ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm")}>
+              {msg.text}
+              <p className={cn("text-[10px] mt-1", msg.sender_id === userId ? "text-primary-foreground/60" : "text-muted-foreground")}>
+                {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="px-4 py-2 overflow-x-auto scrollbar-hide shrink-0">
+        <div className="flex gap-2 min-w-max">
+          {MESSAGE_SHORTCUTS.map(s => (
+            <button key={s} onClick={() => setNewMessage(s)} className="text-[11px] bg-accent text-accent-foreground px-3 py-1.5 rounded-full whitespace-nowrap hover:bg-primary hover:text-primary-foreground transition-colors">{s}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 px-4 py-3 border-t border-border bg-card shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <input
+          type="text"
+          value={newMessage}
+          onChange={e => setNewMessage(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleSend()}
+          placeholder="Type a message..."
+          className="flex-1 bg-muted rounded-xl px-4 py-2.5 text-sm outline-none"
+        />
+        <button onClick={handleSend} disabled={!newMessage.trim()} className="p-2.5 bg-primary rounded-xl text-primary-foreground disabled:opacity-50">
+          <Send className="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function InboxPage() {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const [selectedConvo, setSelectedConvo] = useState<string | null>(null);
-  const [newMessage, setNewMessage] = useState("");
-  const [conversations] = useState(MOCK_CONVERSATIONS);
   const [search, setSearch] = useState("");
+  const { data: conversations, isLoading } = useConversations(user?.id);
 
-  const convo = conversations.find(c => c.id === selectedConvo);
-
-  const filteredConvos = conversations.filter(c =>
-    c.participantName.toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Chat view (fullscreen like WhatsApp)
-  if (convo) {
+  if (!isAuthenticated) {
     return (
-      <div className="fixed inset-0 z-[60] bg-background flex flex-col animate-fade-in">
-        {/* Chat header */}
-        <div className="flex items-center gap-3 px-4 h-14 border-b border-border bg-card shrink-0">
-          <button onClick={() => setSelectedConvo(null)} className="p-1"><ArrowLeft className="h-5 w-5" /></button>
-          <UserAvatar icon={convo.participantAvatarIcon} avatar={convo.participantAvatar} size="sm" onClick={() => navigate(`/profile/${convo.participantId}`)} />
-          <button onClick={() => navigate(`/profile/${convo.participantId}`)} className="font-semibold text-sm">{convo.participantName}</button>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {convo.messages.map(msg => (
-            <div key={msg.id} className={cn("flex", msg.senderId === "me" ? "justify-end" : "justify-start")}>
-              <div className={cn("max-w-[75%] px-3 py-2 rounded-2xl text-sm", msg.senderId === "me" ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm")}>
-                {msg.text}
-                <p className={cn("text-[10px] mt-1", msg.senderId === "me" ? "text-primary-foreground/60" : "text-muted-foreground")}>
-                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Shortcuts */}
-        <div className="px-4 py-2 overflow-x-auto scrollbar-hide shrink-0">
-          <div className="flex gap-2 min-w-max">
-            {MESSAGE_SHORTCUTS.map(s => (
-              <button key={s} onClick={() => setNewMessage(s)} className="text-[11px] bg-accent text-accent-foreground px-3 py-1.5 rounded-full whitespace-nowrap hover:bg-primary hover:text-primary-foreground transition-colors">
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Input */}
-        <div className="flex items-center gap-2 px-4 py-3 border-t border-border bg-card shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={e => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 bg-muted rounded-xl px-4 py-2.5 text-sm outline-none"
-          />
-          <button className="p-2.5 bg-primary rounded-xl text-primary-foreground">
-            <Send className="h-5 w-5" />
-          </button>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-6">
+        <p className="text-sm text-muted-foreground">Sign in to see your messages.</p>
+        <button onClick={() => navigate("/auth")} className="bg-primary text-primary-foreground px-6 py-2.5 rounded-xl font-semibold text-sm">Sign In</button>
       </div>
     );
   }
 
-  // Conversation list - add bottom padding above nav bar
+  if (selectedConvo && user) {
+    return <ChatView conversationId={selectedConvo} userId={user.id} onBack={() => setSelectedConvo(null)} />;
+  }
+
   return (
     <div className="animate-fade-in pb-4">
       <div className="px-4 py-3">
@@ -83,23 +121,14 @@ export default function InboxPage() {
           <input type="text" placeholder="Search conversations..." value={search} onChange={e => setSearch(e.target.value)} className="bg-transparent text-sm outline-none w-full" />
         </div>
       </div>
+      {isLoading && <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
       <div className="pb-4">
-        {filteredConvos.map(c => (
-          <button key={c.id} onClick={() => setSelectedConvo(c.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left">
-            <UserAvatar icon={c.participantAvatarIcon} avatar={c.participantAvatar} size="md" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm truncate">{c.participantName}</span>
-                <span className="text-[10px] text-muted-foreground">{new Date(c.lastMessageTime).toLocaleDateString()}</span>
-              </div>
-              <p className="text-xs text-muted-foreground truncate mt-0.5">{c.lastMessage}</p>
-            </div>
-            {c.unreadCount > 0 && (
-              <span className="bg-primary text-primary-foreground text-[10px] font-bold min-w-[20px] h-5 flex items-center justify-center rounded-full px-1.5">{c.unreadCount}</span>
-            )}
-          </button>
+        {conversations?.map(c => (
+          <ConversationItem key={c.id} convo={c} userId={user!.id} onClick={() => setSelectedConvo(c.id)} />
         ))}
-        {filteredConvos.length === 0 && <p className="text-center text-sm text-muted-foreground py-12">No conversations</p>}
+        {!isLoading && conversations?.length === 0 && (
+          <p className="text-center text-sm text-muted-foreground py-12">No conversations yet. Message a seller to start!</p>
+        )}
       </div>
     </div>
   );

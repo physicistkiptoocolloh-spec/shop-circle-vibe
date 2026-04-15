@@ -1,23 +1,17 @@
 import { useState } from "react";
-import { MOCK_PRODUCTS, CATEGORIES } from "@/lib/mockData";
+import { useProducts } from "@/hooks/useProducts";
+import { useProfileById } from "@/hooks/useProfiles";
 import { ProductCard } from "@/components/shared/ProductCard";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, Loader2 } from "lucide-react";
+import { CATEGORIES } from "@/lib/mockData";
 
 export default function HomePage() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const visibleProducts = MOCK_PRODUCTS.filter(p => !p.isArchived).filter(p => {
-    const matchesSearch = !search || p.title.toLowerCase().includes(search.toLowerCase());
-    const matchesCat = !selectedCategory || p.category === selectedCategory;
-    return matchesSearch && matchesCat;
-  });
-
-  // Sort: boosted first, then by date (simulating auto-rotation)
-  const sorted = [...visibleProducts].sort((a, b) => {
-    if (a.isBoosted && !b.isBoosted) return -1;
-    if (!a.isBoosted && b.isBoosted) return 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  const { data: products, isLoading } = useProducts({
+    category: selectedCategory || undefined,
+    search: search || undefined,
   });
 
   return (
@@ -47,9 +41,7 @@ export default function HomePage() {
           <button
             onClick={() => setSelectedCategory(null)}
             className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
-              !selectedCategory
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-accent"
+              !selectedCategory ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
             }`}
           >
             All
@@ -59,9 +51,7 @@ export default function HomePage() {
               key={cat}
               onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
               className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap ${
-                selectedCategory === cat
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-accent"
+                selectedCategory === cat ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
               }`}
             >
               {cat}
@@ -70,16 +60,25 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Product grid */}
-      <div className="px-4 py-3 grid grid-cols-2 gap-3">
-        {sorted.map(product => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </div>
+      {/* Loading */}
+      {isLoading && (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 text-primary animate-spin" />
+        </div>
+      )}
 
-      {sorted.length === 0 && (
+      {/* Product grid */}
+      {!isLoading && products && (
+        <div className="px-4 py-3 grid grid-cols-2 gap-3">
+          {products.map(product => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && products?.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
-          <p className="text-sm">No products found</p>
+          <p className="text-sm">No products found. Be the first to list!</p>
         </div>
       )}
     </div>

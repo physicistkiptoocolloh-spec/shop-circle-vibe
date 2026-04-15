@@ -1,34 +1,95 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, Image, Loader2, CheckCircle, Rocket, TrendingUp } from "lucide-react";
+import { ArrowLeft, Upload, Image, Loader2, CheckCircle, Rocket, TrendingUp, X } from "lucide-react";
 import { CATEGORIES } from "@/lib/mockData";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCreateProduct } from "@/hooks/useProducts";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function SellPage() {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  const createProduct = useCreateProduct();
   const [step, setStep] = useState<"form" | "uploading" | "success">("form");
   const [progress, setProgress] = useState(0);
   const [showBoostPrompt, setShowBoostPrompt] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     title: "", price: "", description: "", condition: "New",
-    category: "Electronics", location: "", shipping: true, images: [] as string[],
+    category: "Electronics", location: "", shipping: true,
   });
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
-  const handleSubmit = () => {
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-6">
+        <p className="text-sm text-muted-foreground">You need to sign in to sell products.</p>
+        <button onClick={() => navigate("/auth")} className="bg-primary text-primary-foreground px-6 py-2.5 rounded-xl font-semibold text-sm">Sign In</button>
+      </div>
+    );
+  }
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = 3 - imageFiles.length;
+    const toAdd = files.slice(0, remaining);
+    setImageFiles(prev => [...prev, ...toAdd]);
+    toAdd.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => setImagePreviews(prev => [...prev, e.target?.result as string]);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (idx: number) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== idx));
+    setImagePreviews(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSubmit = async () => {
+    if (!user || !form.title || !form.price) return;
     setStep("uploading");
-    let p = 0;
-    const interval = setInterval(() => {
-      p += Math.random() * 20;
-      if (p >= 100) {
-        p = 100;
-        clearInterval(interval);
-        setTimeout(() => {
-          setStep("success");
-          setTimeout(() => setShowBoostPrompt(true), 1000);
-        }, 500);
+    setProgress(10);
+
+    try {
+      // Upload images
+      const imageUrls: string[] = [];
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+        const ext = file.name.split(".").pop();
+        const path = `${user.id}/${Date.now()}-${i}.${ext}`;
+        setProgress(10 + (i + 1) / imageFiles.length * 50);
+
+        const { error } = await supabase.storage.from("product-images").upload(path, file);
+        if (error) throw error;
+        const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+        imageUrls.push(data.publicUrl);
       }
-      setProgress(Math.min(100, Math.round(p)));
-    }, 300);
+
+      setProgress(70);
+
+      // Create product
+      await createProduct.mutateAsync({
+        seller_id: user.id,
+        title: form.title,
+        price: Number(form.price),
+        description: form.description,
+        condition: form.condition,
+        category: form.category,
+        location: form.location,
+        shipping: form.shipping,
+        images: imageUrls,
+      });
+
+      setProgress(100);
+      setStep("success");
+      setTimeout(() => setShowBoostPrompt(true), 1000);
+    } catch (err) {
+      console.error(err);
+      setStep("form");
+    }
   };
 
   if (step === "uploading") {
@@ -39,7 +100,7 @@ export default function SellPage() {
         <div className="w-full max-w-xs bg-muted rounded-full h-3 overflow-hidden">
           <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
         </div>
-        <p className="text-sm text-muted-foreground">{progress}%</p>
+        <p className="text-sm text-muted-foreground">{Math.round(progress)}%</p>
       </div>
     );
   }
@@ -50,7 +111,6 @@ export default function SellPage() {
         <CheckCircle className="h-16 w-16 text-success" />
         <h2 className="text-xl font-bold">Product Listed!</h2>
         <p className="text-sm text-muted-foreground text-center">Your product is now visible to everyone on SokoMtaani.</p>
-
         {showBoostPrompt && (
           <div className="w-full max-w-sm p-4 bg-primary/5 border border-primary/20 rounded-xl animate-fade-in">
             <p className="font-semibold text-sm flex items-center gap-1.5"><TrendingUp className="h-4 w-4 text-primary" /> Get up to 1,000 views per day!</p>
@@ -60,7 +120,6 @@ export default function SellPage() {
             </button>
           </div>
         )}
-
         <button onClick={() => navigate("/")} className="text-sm text-primary font-medium mt-2">Back to Home</button>
       </div>
     );
@@ -72,19 +131,26 @@ export default function SellPage() {
         <button onClick={() => navigate(-1)} className="p-1"><ArrowLeft className="h-5 w-5" /></button>
         <h1 className="font-bold text-lg">Sell Product</h1>
       </div>
-      <p className="px-4 text-xs text-muted-foreground mb-3">You can upload up to 3 products. 3 posts per week allowed.</p>
+      <p className="px-4 text-xs text-muted-foreground mb-3">Upload up to 3 photos. 3 posts per week allowed.</p>
 
       <div className="px-4 space-y-4 pb-8">
         {/* Image upload */}
         <div>
           <label className="text-sm font-medium">Photos (up to 3)</label>
+          <input type="file" ref={fileInputRef} accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
           <div className="flex gap-2 mt-1.5">
-            {[0, 1, 2].map(i => (
-              <button key={i} className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary transition-colors">
+            {imagePreviews.map((src, i) => (
+              <div key={i} className="relative w-24 h-24">
+                <img src={src} alt="" className="w-full h-full rounded-xl object-cover" />
+                <button onClick={() => removeImage(i)} className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"><X className="h-3 w-3 text-destructive-foreground" /></button>
+              </div>
+            ))}
+            {imagePreviews.length < 3 && (
+              <button onClick={() => fileInputRef.current?.click()} className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary transition-colors">
                 <Image className="h-6 w-6 text-muted-foreground" />
                 <span className="text-[10px] text-muted-foreground">Add</span>
               </button>
-            ))}
+            )}
           </div>
         </div>
 
@@ -105,7 +171,7 @@ export default function SellPage() {
 
         <div>
           <label className="text-sm font-medium">Condition</label>
-          <div className="flex gap-2 mt-1.5">
+          <div className="flex gap-2 mt-1.5 flex-wrap">
             {["New", "Like New", "Used", "Refurbished"].map(c => (
               <button key={c} onClick={() => setForm({ ...form, condition: c })} className={`text-xs px-3 py-1.5 rounded-full font-medium ${form.condition === c ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{c}</button>
             ))}
@@ -126,15 +192,12 @@ export default function SellPage() {
 
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium">Shipping available?</label>
-          <button
-            onClick={() => setForm({ ...form, shipping: !form.shipping })}
-            className={`w-11 h-6 rounded-full transition-colors ${form.shipping ? "bg-primary" : "bg-muted"}`}
-          >
+          <button onClick={() => setForm({ ...form, shipping: !form.shipping })} className={`w-11 h-6 rounded-full transition-colors ${form.shipping ? "bg-primary" : "bg-muted"}`}>
             <div className={`w-5 h-5 bg-card rounded-full shadow transition-transform ${form.shipping ? "translate-x-5" : "translate-x-0.5"}`} />
           </button>
         </div>
 
-        <button onClick={handleSubmit} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
+        <button onClick={handleSubmit} disabled={!form.title || !form.price} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
           <Upload className="h-5 w-5" /> List Product
         </button>
       </div>

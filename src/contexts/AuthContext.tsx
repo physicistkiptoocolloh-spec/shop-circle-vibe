@@ -1,26 +1,15 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
-
-interface UserProfile {
-  id: string;
-  name: string;
-  avatar: string | null;
-  avatarIcon: string;
-  email: string;
-  country: string;
-  location: string;
-  phone: string;
-  isSeller: boolean;
-}
+import type { DbProfile } from "@/hooks/useProfiles";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  profile: UserProfile | null;
+  profile: DbProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  setProfile: (p: UserProfile | null) => void;
+  refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -30,37 +19,38 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   isLoading: true,
   isAuthenticated: false,
-  setProfile: () => {},
+  refreshProfile: async () => {},
   signOut: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
 
-// Mock profile for demo
-const MOCK_PROFILE: UserProfile = {
-  id: "me",
-  name: "Demo User",
-  avatar: null,
-  avatarIcon: "User",
-  email: "demo@sokomtaani.com",
-  country: "Kenya",
-  location: "Nairobi",
-  phone: "+254700000000",
-  isSeller: true,
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<DbProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+    setProfile(data);
+  };
+
+  const refreshProfile = async () => {
+    if (user) await fetchProfile(user.id);
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        setProfile(MOCK_PROFILE);
+        // Use setTimeout to avoid Supabase auth deadlock
+        setTimeout(() => fetchProfile(session.user.id), 0);
       } else {
         setProfile(null);
       }
@@ -71,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        setProfile(MOCK_PROFILE);
+        fetchProfile(session.user.id);
       }
       setIsLoading(false);
     });
@@ -91,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       isLoading,
       isAuthenticated: !!session,
-      setProfile,
+      refreshProfile,
       signOut,
     }}>
       {children}

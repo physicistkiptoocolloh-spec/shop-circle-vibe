@@ -4,9 +4,11 @@ import { Store, Mail, Lock, ArrowRight, Loader2, ChevronDown } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import { COUNTRIES, AVATAR_ICONS } from "@/lib/mockData";
 import { UserAvatar } from "@/components/shared/UserAvatar";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AuthPage() {
   const navigate = useNavigate();
+  const { refreshProfile } = useAuth();
   const [step, setStep] = useState<"auth" | "verify" | "profile">("auth");
   const [isLogin, setIsLogin] = useState(false);
   const [email, setEmail] = useState("");
@@ -28,6 +30,7 @@ export default function AuthPage() {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        await refreshProfile();
         navigate("/");
       } else {
         const { error } = await supabase.auth.signUp({
@@ -45,9 +48,27 @@ export default function AuthPage() {
     }
   };
 
-  const handleProfileSetup = () => {
-    // In real app, save to profiles table
-    navigate("/");
+  const handleProfileSetup = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      await supabase.from("profiles").update({
+        name,
+        avatar_icon: selectedIcon,
+        country,
+        location,
+        phone,
+      }).eq("user_id", user.id);
+
+      await refreshProfile();
+      navigate("/");
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (step === "verify") {
@@ -79,6 +100,8 @@ export default function AuthPage() {
           </div>
         </div>
 
+        {error && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-xl mt-4">{error}</p>}
+
         <div className="mt-6 space-y-4">
           <div>
             <label className="text-sm font-medium">Full Name</label>
@@ -103,7 +126,8 @@ export default function AuthPage() {
           </div>
         </div>
 
-        <button onClick={handleProfileSetup} className="w-full mt-6 bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
+        <button onClick={handleProfileSetup} disabled={loading || !name} className="w-full mt-6 bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Complete Setup <ArrowRight className="h-4 w-4" />
         </button>
       </div>
@@ -135,14 +159,14 @@ export default function AuthPage() {
           </div>
         </div>
 
-        <button onClick={handleAuth} disabled={loading} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+        <button onClick={handleAuth} disabled={loading || !email || !password} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {isLogin ? "Sign In" : "Sign Up"}
         </button>
 
         <p className="text-center text-sm text-muted-foreground">
           {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-          <button onClick={() => setIsLogin(!isLogin)} className="text-primary font-medium">{isLogin ? "Sign Up" : "Sign In"}</button>
+          <button onClick={() => { setIsLogin(!isLogin); setError(""); }} className="text-primary font-medium">{isLogin ? "Sign Up" : "Sign In"}</button>
         </p>
       </div>
     </div>
