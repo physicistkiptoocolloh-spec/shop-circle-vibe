@@ -21,9 +21,9 @@ export default function InboxPage() {
   // Chat view (fullscreen like WhatsApp)
   if (convo) {
     return (
-      <div className="fixed inset-0 z-50 bg-background flex flex-col animate-fade-in">
+      <div className="fixed inset-0 z-[60] bg-background flex flex-col animate-fade-in">
         {/* Chat header */}
-        <div className="flex items-center gap-3 px-4 h-14 border-b border-border bg-card">
+        <div className="flex items-center gap-3 px-4 h-14 border-b border-border bg-card shrink-0">
           <button onClick={() => setSelectedConvo(null)} className="p-1"><ArrowLeft className="h-5 w-5" /></button>
           <UserAvatar icon={convo.participantAvatarIcon} avatar={convo.participantAvatar} size="sm" onClick={() => navigate(`/profile/${convo.participantId}`)} />
           <button onClick={() => navigate(`/profile/${convo.participantId}`)} className="font-semibold text-sm">{convo.participantName}</button>
@@ -44,7 +44,7 @@ export default function InboxPage() {
         </div>
 
         {/* Shortcuts */}
-        <div className="px-4 py-2 overflow-x-auto scrollbar-hide">
+        <div className="px-4 py-2 overflow-x-auto scrollbar-hide shrink-0">
           <div className="flex gap-2 min-w-max">
             {MESSAGE_SHORTCUTS.map(s => (
               <button key={s} onClick={() => setNewMessage(s)} className="text-[11px] bg-accent text-accent-foreground px-3 py-1.5 rounded-full whitespace-nowrap hover:bg-primary hover:text-primary-foreground transition-colors">
@@ -55,7 +55,7 @@ export default function InboxPage() {
         </div>
 
         {/* Input */}
-        <div className="flex items-center gap-2 px-4 py-3 border-t border-border bg-card safe-area-bottom">
+        <div className="flex items-center gap-2 px-4 py-3 border-t border-border bg-card shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <input
             type="text"
             value={newMessage}
@@ -71,9 +71,9 @@ export default function InboxPage() {
     );
   }
 
-  // Conversation list
+  // Conversation list - add bottom padding above nav bar
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in pb-4">
       <div className="px-4 py-3">
         <h1 className="text-xl font-bold">Inbox</h1>
       </div>
@@ -83,7 +83,7 @@ export default function InboxPage() {
           <input type="text" placeholder="Search conversations..." value={search} onChange={e => setSearch(e.target.value)} className="bg-transparent text-sm outline-none w-full" />
         </div>
       </div>
-      <div>
+      <div className="pb-4">
         {filteredConvos.map(c => (
           <button key={c.id} onClick={() => setSelectedConvo(c.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-left">
             <UserAvatar icon={c.participantAvatarIcon} avatar={c.participantAvatar} size="md" />
