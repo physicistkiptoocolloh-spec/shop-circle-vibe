@@ -1,16 +1,61 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, Crop } from "lucide-react";
-import { COUNTRIES, AVATAR_ICONS } from "@/lib/mockData";
+import { ArrowLeft, Camera, Crop, Loader2 } from "lucide-react";
+import { AVATAR_ICONS } from "@/lib/mockData";
 import { UserAvatar } from "@/components/shared/UserAvatar";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUpdateProfile, useUploadAvatar } from "@/hooks/useProfiles";
+import { useToast } from "@/hooks/use-toast";
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
-  const [name, setName] = useState("Demo User");
-  const [description, setDescription] = useState("Trusted buyer and seller on SokoMtaani.");
-  const [phone, setPhone] = useState("+254700000000");
-  const [selectedIcon, setSelectedIcon] = useState("User");
+  const { user, profile, refreshProfile } = useAuth();
+  const updateProfile = useUpdateProfile();
+  const uploadAvatar = useUploadAvatar();
+  const { toast } = useToast();
+
+  const [name, setName] = useState(profile?.name || "");
+  const [description, setDescription] = useState(profile?.description || "");
+  const [phone, setPhone] = useState(profile?.phone || "");
+  const [selectedIcon, setSelectedIcon] = useState(profile?.avatar_icon || "User");
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      await updateProfile.mutateAsync({
+        userId: user.id,
+        name,
+        description,
+        phone,
+        avatar_icon: selectedIcon,
+      });
+      await refreshProfile();
+      toast({ title: "Profile updated!" });
+      navigate(-1);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    try {
+      const url = await uploadAvatar.mutateAsync({ userId: user.id, file });
+      await updateProfile.mutateAsync({ userId: user.id, avatar_url: url });
+      await refreshProfile();
+      toast({ title: "Avatar updated!" });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  if (!profile) return null;
 
   return (
     <div className="animate-fade-in pb-8">
@@ -21,11 +66,14 @@ export default function EditProfilePage() {
 
       <div className="flex flex-col items-center px-4 mt-4">
         <div className="relative">
-          <UserAvatar icon={selectedIcon} size="xl" />
-          <button onClick={() => setShowIconPicker(!showIconPicker)} className="absolute -bottom-1 -right-1 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+          <UserAvatar icon={selectedIcon} avatar={profile.avatar_url} size="xl" />
+          <label className="absolute -bottom-1 -right-1 w-8 h-8 bg-primary rounded-full flex items-center justify-center cursor-pointer">
             <Camera className="h-4 w-4 text-primary-foreground" />
-          </button>
+            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+          </label>
         </div>
+
+        <button onClick={() => setShowIconPicker(!showIconPicker)} className="text-xs text-primary mt-2">Change icon avatar</button>
 
         {showIconPicker && (
           <div className="mt-3 flex gap-2 flex-wrap justify-center animate-fade-in">
@@ -34,10 +82,6 @@ export default function EditProfilePage() {
                 <UserAvatar icon={icon} size="sm" />
               </button>
             ))}
-            <button className="p-2 rounded-xl border-2 border-dashed border-border flex items-center gap-1">
-              <Crop className="h-4 w-4 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground">Upload & Crop</span>
-            </button>
           </div>
         )}
       </div>
@@ -56,7 +100,9 @@ export default function EditProfilePage() {
           <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full mt-1 bg-muted rounded-xl px-4 py-2.5 text-sm outline-none" />
         </div>
 
-        <button className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm">Save Changes</button>
+        <button onClick={handleSave} disabled={saving} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />} Save Changes
+        </button>
       </div>
     </div>
   );
