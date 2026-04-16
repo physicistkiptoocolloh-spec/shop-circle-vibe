@@ -65,6 +65,33 @@ export type Database = {
         }
         Relationships: []
       }
+      device_fingerprints: {
+        Row: {
+          created_at: string
+          fingerprint: string
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fingerprint: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fingerprint?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           conversation_id: string
@@ -422,6 +449,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_daily_product_limit: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      check_device_duplicate: {
+        Args: { _fingerprint: string; _ip: string }
+        Returns: {
+          existing_user_id: string
+          match_type: string
+        }[]
+      }
       is_conversation_participant: {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
