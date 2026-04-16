@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, Image, Loader2, CheckCircle, Rocket, TrendingUp, X } from "lucide-react";
+import { ArrowLeft, Upload, Image, Loader2, CheckCircle, Rocket, TrendingUp, X, AlertTriangle } from "lucide-react";
 import { CATEGORIES } from "@/lib/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCreateProduct } from "@/hooks/useProducts";
@@ -14,6 +14,17 @@ export default function SellPage() {
   const [progress, setProgress] = useState(0);
   const [showBoostPrompt, setShowBoostPrompt] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [canPost, setCanPost] = useState(true);
+  const [checkingLimit, setCheckingLimit] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    setCheckingLimit(true);
+    supabase.rpc("check_daily_product_limit", { _user_id: user.id }).then(({ data }) => {
+      setCanPost(data === true);
+      setCheckingLimit(false);
+    });
+  }, [user]);
 
   const [form, setForm] = useState({
     title: "", price: "", description: "", condition: "New",
@@ -131,7 +142,18 @@ export default function SellPage() {
         <button onClick={() => navigate(-1)} className="p-1"><ArrowLeft className="h-5 w-5" /></button>
         <h1 className="font-bold text-lg">Sell Product</h1>
       </div>
-      <p className="px-4 text-xs text-muted-foreground mb-3">Upload up to 3 photos. 3 posts per week allowed.</p>
+      {checkingLimit ? (
+        <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+      ) : !canPost ? (
+        <div className="mx-4 mb-3 p-4 bg-destructive/5 border border-destructive/20 rounded-xl flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-destructive">Daily limit reached</p>
+            <p className="text-xs text-muted-foreground mt-1">You can only list 3 products per day. Try again tomorrow!</p>
+          </div>
+        </div>
+      ) : null}
+      <p className="px-4 text-xs text-muted-foreground mb-3">Upload up to 3 photos. Max 3 products per day.</p>
 
       <div className="px-4 space-y-4 pb-8">
         {/* Image upload */}
@@ -197,7 +219,7 @@ export default function SellPage() {
           </button>
         </div>
 
-        <button onClick={handleSubmit} disabled={!form.title || !form.price} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+        <button onClick={handleSubmit} disabled={!form.title || !form.price || !canPost || checkingLimit} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
           <Upload className="h-5 w-5" /> List Product
         </button>
       </div>

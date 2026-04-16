@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Store, Mail, Lock, ArrowRight, Loader2, ChevronDown } from "lucide-react";
+import { Store, Mail, Lock, ArrowRight, Loader2, ChevronDown, AlertTriangle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { COUNTRIES, AVATAR_ICONS } from "@/lib/mockData";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDeviceFingerprint } from "@/hooks/useDeviceFingerprint";
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { refreshProfile } = useAuth();
+  const { refreshProfile, user } = useAuth();
+  const { duplicateDetected, checking: fpChecking } = useDeviceFingerprint(user?.id);
+  const [showDupeModal, setShowDupeModal] = useState(false);
   const [step, setStep] = useState<"auth" | "verify" | "profile">("auth");
   const [isLogin, setIsLogin] = useState(false);
   const [email, setEmail] = useState("");
@@ -22,6 +25,30 @@ export default function AuthPage() {
   const [location, setLocation] = useState("");
   const [phone, setPhone] = useState("");
   const [selectedIcon, setSelectedIcon] = useState("User");
+
+  // Show duplicate modal when detected after login
+  useEffect(() => {
+    if (duplicateDetected) setShowDupeModal(true);
+  }, [duplicateDetected]);
+
+  const DuplicateModal = () => showDupeModal ? (
+    <div className="fixed inset-0 z-50 bg-foreground/50 flex items-center justify-center px-6" onClick={() => setShowDupeModal(false)}>
+      <div className="bg-card rounded-2xl w-full max-w-sm p-6 animate-fade-in" onClick={e => e.stopPropagation()}>
+        <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
+        <h3 className="font-bold text-center mt-3 text-lg">Account Already Exists</h3>
+        <p className="text-sm text-muted-foreground text-center mt-2">
+          We detected that another account is already registered from this device or network. 
+          SokoMtaani allows only one account per device to ensure fair use and prevent fraud.
+        </p>
+        <p className="text-xs text-muted-foreground text-center mt-2">
+          If you believe this is an error, please contact our admin team from your dashboard.
+        </p>
+        <button onClick={() => setShowDupeModal(false)} className="w-full mt-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold">
+          I Understand
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   const handleAuth = async () => {
     setLoading(true);
@@ -136,6 +163,7 @@ export default function AuthPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 animate-fade-in">
+      <DuplicateModal />
       <Store className="h-12 w-12 text-primary mb-2" />
       <h1 className="text-2xl font-bold text-primary">SokoMtaani</h1>
       <p className="text-sm text-muted-foreground mt-1">{isLogin ? "Welcome back!" : "Create your account"}</p>
