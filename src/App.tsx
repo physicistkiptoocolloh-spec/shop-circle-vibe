@@ -16,6 +16,10 @@ import AuthPage from "@/pages/AuthPage";
 import EditProfilePage from "@/pages/EditProfilePage";
 import ProfilePage from "@/pages/ProfilePage";
 import ToSPage from "@/pages/ToSPage";
+import NotificationsPage from "@/pages/NotificationsPage";
+import HelpCenterPage from "@/pages/HelpCenterPage";
+import PrivacySettingsPage from "@/pages/PrivacySettingsPage";
+import ReportProblemPage from "@/pages/ReportProblemPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +44,10 @@ const App = () => (
               <Route path="/profile/edit" element={<EditProfilePage />} />
               <Route path="/profile/:id" element={<ProfilePage />} />
               <Route path="/tos" element={<ToSPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/help" element={<HelpCenterPage />} />
+              <Route path="/privacy-settings" element={<PrivacySettingsPage />} />
+              <Route path="/report" element={<ReportProblemPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

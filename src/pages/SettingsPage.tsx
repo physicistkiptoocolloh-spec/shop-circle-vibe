@@ -14,15 +14,15 @@ export default function SettingsPage() {
       title: "Account",
       items: [
         { icon: User, label: "Edit Profile", path: "/profile/edit" },
-        { icon: Bell, label: "Notifications", path: "#" },
-        { icon: Eye, label: "Privacy Settings", path: "#" },
+        { icon: Bell, label: "Notifications", path: "/notifications" },
+        { icon: Eye, label: "Privacy Settings", path: "/privacy-settings" },
       ],
     },
     {
       title: "Selling",
       items: [
         { icon: Store, label: "Start Selling", description: "List your first product!", path: "/sell" },
-        { icon: CreditCard, label: "Payment Settings", path: "#" },
+        { icon: CreditCard, label: "Payment Settings", path: "/dashboard" },
         { icon: Shield, label: "Verification", path: "/dashboard" },
       ],
     },
@@ -35,14 +35,14 @@ export default function SettingsPage() {
         { icon: AlertTriangle, label: "Community Standards", path: "/tos?tab=community" },
         { icon: Shield, label: "Safety Tips", path: "/tos?tab=safety" },
         { icon: FileText, label: "Privacy Policy", path: "/tos?tab=privacy" },
-        { icon: AlertTriangle, label: "Report a Problem", path: "#" },
+        { icon: AlertTriangle, label: "Report a Problem", path: "/report" },
       ],
     },
     {
       title: "Support",
       items: [
-        { icon: HelpCircle, label: "Help Center", path: "#" },
-        { icon: FileText, label: "FAQ", path: "#" },
+        { icon: HelpCircle, label: "Help Center", path: "/help" },
+        { icon: FileText, label: "FAQ", path: "/help" },
       ],
     },
   ];
