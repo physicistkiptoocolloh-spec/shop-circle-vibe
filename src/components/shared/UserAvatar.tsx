@@ -24,8 +24,10 @@ const iconSizeMap = {
   xl: 32,
 };
 
-export function UserAvatar({ avatar, icon = "User", name, size = "md", className, onClick }: UserAvatarProps) {
-  const IconComponent = (Icons as any)[icon] || Icons.User;
+export function UserAvatar({ avatar, icon, name, size = "md", className, onClick }: UserAvatarProps) {
+  // Always resolve to a valid icon, fallback to User
+  const iconName = icon && icon.trim() && (Icons as any)[icon] ? icon : "User";
+  const IconComponent = (Icons as any)[iconName];
 
   if (avatar) {
     return (

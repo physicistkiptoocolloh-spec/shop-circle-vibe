@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Send, ArrowLeft, Search as SearchIcon, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useConversations, useMessages, useSendMessage, useMarkMessagesRead } from "@/hooks/useMessages";
+import { useConversations, useMessages, useSendMessage, useMarkMessagesRead, useGetOrCreateConversation } from "@/hooks/useMessages";
 import { useProfileById } from "@/hooks/useProfiles";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { MESSAGE_SHORTCUTS } from "@/lib/mockData";
@@ -34,9 +34,15 @@ function ChatView({ conversationId, userId, onBack }: { conversationId: string; 
   const { data: messages, isLoading } = useMessages(conversationId);
   const sendMessage = useSendMessage();
   const markRead = useMarkMessagesRead();
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Mark messages read
-  markRead.mutate({ conversationId, userId });
+  useEffect(() => {
+    markRead.mutate({ conversationId, userId });
+  }, [conversationId, userId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleSend = () => {
     if (!newMessage.trim()) return;
@@ -63,6 +69,7 @@ function ChatView({ conversationId, userId, onBack }: { conversationId: string; 
             </div>
           </div>
         ))}
+        <div ref={bottomRef} />
       </div>
 
       <div className="px-4 py-2 overflow-x-auto scrollbar-hide shrink-0">
@@ -92,10 +99,39 @@ function ChatView({ conversationId, userId, onBack }: { conversationId: string; 
 
 export default function InboxPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
   const [selectedConvo, setSelectedConvo] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const { data: conversations, isLoading } = useConversations(user?.id);
+  const getOrCreateConvo = useGetOrCreateConversation();
+  const toUserId = searchParams.get("to");
+
+  // Auto-open or create conversation when ?to= is present
+  useEffect(() => {
+    if (!toUserId || !user || !conversations) return;
+    
+    // Find existing conversation with this user
+    const existing = conversations.find(
+      c => c.participant_one === toUserId || c.participant_two === toUserId
+    );
+    
+    if (existing) {
+      setSelectedConvo(existing.id);
+      setSearchParams({}, { replace: true });
+    } else {
+      // Create new conversation
+      getOrCreateConvo.mutate(
+        { userId: user.id, otherUserId: toUserId },
+        {
+          onSuccess: (convo) => {
+            setSelectedConvo(convo.id);
+            setSearchParams({}, { replace: true });
+          },
+        }
+      );
+    }
+  }, [toUserId, user, conversations]);
 
   if (!isAuthenticated) {
     return (
@@ -121,12 +157,12 @@ export default function InboxPage() {
           <input type="text" placeholder="Search conversations..." value={search} onChange={e => setSearch(e.target.value)} className="bg-transparent text-sm outline-none w-full" />
         </div>
       </div>
-      {isLoading && <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
+      {(isLoading || getOrCreateConvo.isPending) && <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
       <div className="pb-4">
         {conversations?.map(c => (
           <ConversationItem key={c.id} convo={c} userId={user!.id} onClick={() => setSelectedConvo(c.id)} />
         ))}
-        {!isLoading && conversations?.length === 0 && (
+        {!isLoading && conversations?.length === 0 && !toUserId && (
           <p className="text-center text-sm text-muted-foreground py-12">No conversations yet. Message a seller to start!</p>
         )}
       </div>
