@@ -115,7 +115,7 @@ export default function ProductDetailPage() {
 
         {/* Actions */}
         <div className="flex gap-2 mt-4">
-          <button onClick={() => navigate(`/inbox?to=${product.seller_id}`)} className="flex-1 bg-primary text-primary-foreground py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+          <button onClick={() => navigate(`/inbox?to=${product.seller_id}&product=${product.id}`)} className="flex-1 bg-primary text-primary-foreground py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all">
             <MessageSquare className="h-5 w-5" /> Message Seller
           </button>
           <button className="p-3 rounded-xl border border-border hover:bg-accent transition-colors"><Share2 className="h-5 w-5" /></button>
