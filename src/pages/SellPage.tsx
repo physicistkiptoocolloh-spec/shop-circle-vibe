@@ -147,13 +147,14 @@ export default function SellPage() {
       ) : !canPost ? (
         <div className="mx-4 mb-3 p-4 bg-destructive/5 border border-destructive/20 rounded-xl flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-semibold text-destructive">Daily limit reached</p>
-            <p className="text-xs text-muted-foreground mt-1">You can only list 3 products per day. Try again tomorrow!</p>
+            <p className="text-xs text-muted-foreground mt-1">You've hit today's product limit. Boost your account to list up to 999 products/day, or get verified for 10/day.</p>
+            <button onClick={() => navigate("/dashboard")} className="mt-2 text-xs font-semibold text-primary flex items-center gap-1"><Rocket className="h-3 w-3" /> Upgrade now</button>
           </div>
         </div>
       ) : null}
-      <p className="px-4 text-xs text-muted-foreground mb-3">Upload up to 3 photos. Max 3 products per day.</p>
+      <p className="px-4 text-xs text-muted-foreground mb-3">Upload up to 3 photos. Free accounts: 3 products/day. Boosted: unlimited.</p>
 
       <div className="px-4 space-y-4 pb-8">
         {/* Image upload */}

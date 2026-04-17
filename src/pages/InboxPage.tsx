@@ -51,7 +51,7 @@ function ChatView({ conversationId, userId, onBack }: { conversationId: string; 
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-background flex flex-col animate-fade-in">
+    <div className="fixed inset-0 z-[100] bg-background flex flex-col animate-fade-in">
       <div className="flex items-center gap-3 px-4 h-14 border-b border-border bg-card shrink-0">
         <button onClick={onBack} className="p-1"><ArrowLeft className="h-5 w-5" /></button>
         <span className="font-semibold text-sm">Chat</span>

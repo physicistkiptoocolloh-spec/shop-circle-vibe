@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Package, Star, MessageSquare, Archive, Edit, Eye, ShoppingBag,
   Rocket, ShieldCheck, AlertTriangle, PlusCircle,
@@ -9,11 +9,13 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useMyProducts, useUpdateProduct, useDeleteProduct, type DbProduct } from "@/hooks/useProducts";
 import { useReviewsBySellerProducts, useCreateReviewReply } from "@/hooks/useReviews";
+import { useSubscription } from "@/hooks/useSubscription";
 import { BOOST_TIERS, VERIFICATION_TIERS } from "@/lib/mockData";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { StarRating } from "@/components/shared/StarRating";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { startCheckout } from "@/lib/checkout";
 
 type DashView = "main" | "products" | "reviews" | "archived" | "soldout" | "contact" | "edit-product";
 
@@ -21,6 +23,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, profile, isAuthenticated } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<DashView>("main");
   const [showBoostModal, setShowBoostModal] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
@@ -30,11 +33,42 @@ export default function DashboardPage() {
   const [editingProduct, setEditingProduct] = useState<DbProduct | null>(null);
   const [editForm, setEditForm] = useState({ title: "", price: "", description: "" });
   const [contactForm, setContactForm] = useState({ subject: "", message: "" });
+  const [purchasingTier, setPurchasingTier] = useState<string | null>(null);
 
   const { data: products, isLoading } = useMyProducts(user?.id);
+  const { data: subscription } = useSubscription(user?.id);
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const createReply = useCreateReviewReply();
+
+  // Handle PesaPal payment callback
+  useEffect(() => {
+    if (searchParams.get("payment") === "success") {
+      const t = searchParams.get("type");
+      toast({ title: "Payment received!", description: `Your ${t} subscription is now active.` });
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, toast]);
+
+  const handlePurchase = async (type: "boost" | "verification", tier: any) => {
+    if (!user) return;
+    const key = `${type}-${tier.id}`;
+    setPurchasingTier(key);
+    try {
+      await startCheckout({
+        type,
+        tierId: tier.id,
+        amount: tier.price,
+        currency: tier.currency,
+        description: `${tier.name} - SokoMtaani`,
+        durationDays: type === "boost" ? 30 : 30,
+        user: { id: user.id, email: user.email, phone: profile?.phone, name: profile?.name },
+      });
+    } catch (e: any) {
+      toast({ title: "Payment failed", description: e.message, variant: "destructive" });
+      setPurchasingTier(null);
+    }
+  };
 
   const activeProducts = products?.filter(p => !p.is_archived && !p.is_sold_out) || [];
   const archivedProducts = products?.filter(p => p.is_archived) || [];
@@ -289,7 +323,10 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between"><h3 className="font-bold" style={{ color: tier.color }}>{tier.name}</h3><span className="font-bold text-primary">{tier.currency} {tier.price}/mo</span></div>
                   <p className="text-xs text-muted-foreground mt-1">Up to {tier.viewsPerDay} views/day</p>
                   <div className="mt-2 grid grid-cols-2 gap-1">{tier.benefits.map(b => <p key={b} className="text-[11px] text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3 text-success flex-shrink-0" /> {b}</p>)}</div>
-                  <button className="w-full mt-3 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-semibold">Choose Plan</button>
+                  <button onClick={() => handlePurchase("boost", tier)} disabled={purchasingTier === `boost-${tier.id}` || subscription?.isBoosted} className="w-full mt-3 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+                    {purchasingTier === `boost-${tier.id}` && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {subscription?.isBoosted ? "Already Active" : "Choose Plan"}
+                  </button>
                 </div>
               ))}
             </div>
@@ -312,7 +349,10 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between"><h3 className="font-bold" style={{ color: tier.color }}>{tier.name}</h3><span className="font-bold text-primary">{tier.currency} {tier.price}/mo</span></div>
                   <p className="text-[11px] text-success mt-1">{tier.trialDays}-day free trial</p>
                   <div className="mt-2 grid grid-cols-2 gap-1">{tier.benefits.map(b => <p key={b} className="text-[11px] text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3 text-success flex-shrink-0" /> {b}</p>)}</div>
-                  <button className="w-full mt-3 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-semibold">Start Free Trial</button>
+                  <button onClick={() => handlePurchase("verification", tier)} disabled={purchasingTier === `verification-${tier.id}` || subscription?.isVerified} className="w-full mt-3 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+                    {purchasingTier === `verification-${tier.id}` && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {subscription?.isVerified ? "Already Verified" : "Start Free Trial"}
+                  </button>
                 </div>
               ))}
             </div>
