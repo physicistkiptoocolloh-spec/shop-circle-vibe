@@ -157,6 +157,39 @@ export type Database = {
         }
         Relationships: []
       }
+      phone_otps: {
+        Row: {
+          attempts: number
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          last_sent_at: string
+          phone: string
+          verified: boolean
+        }
+        Insert: {
+          attempts?: number
+          code: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          last_sent_at?: string
+          phone: string
+          verified?: boolean
+        }
+        Update: {
+          attempts?: number
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          last_sent_at?: string
+          phone?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           boost_tier: number
@@ -234,6 +267,7 @@ export type Database = {
           location: string | null
           name: string
           phone: string | null
+          phone_verified: boolean
           report_count: number
           updated_at: string
           user_id: string
@@ -251,6 +285,7 @@ export type Database = {
           location?: string | null
           name?: string
           phone?: string | null
+          phone_verified?: boolean
           report_count?: number
           updated_at?: string
           user_id: string
@@ -268,6 +303,7 @@ export type Database = {
           location?: string | null
           name?: string
           phone?: string | null
+          phone_verified?: boolean
           report_count?: number
           updated_at?: string
           user_id?: string
@@ -459,6 +495,10 @@ export type Database = {
           existing_user_id: string
           match_type: string
         }[]
+      }
+      has_active_subscription: {
+        Args: { _type: string; _user_id: string }
+        Returns: boolean
       }
       is_conversation_participant: {
         Args: { _conversation_id: string; _user_id: string }
