@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Package, Star, MessageSquare, Archive, Edit, Eye, ShoppingBag,
   Rocket, ShieldCheck, AlertTriangle, PlusCircle,
@@ -9,11 +9,13 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useMyProducts, useUpdateProduct, useDeleteProduct, type DbProduct } from "@/hooks/useProducts";
 import { useReviewsBySellerProducts, useCreateReviewReply } from "@/hooks/useReviews";
+import { useSubscription } from "@/hooks/useSubscription";
 import { BOOST_TIERS, VERIFICATION_TIERS } from "@/lib/mockData";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { StarRating } from "@/components/shared/StarRating";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { startCheckout } from "@/lib/checkout";
 
 type DashView = "main" | "products" | "reviews" | "archived" | "soldout" | "contact" | "edit-product";
 
