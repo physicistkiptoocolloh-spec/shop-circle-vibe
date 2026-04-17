@@ -128,33 +128,47 @@ export default function InboxPage() {
   const [search, setSearch] = useState("");
   const { data: conversations, isLoading } = useConversations(user?.id);
   const getOrCreateConvo = useGetOrCreateConversation();
+  const sendMessage = useSendMessage();
   const toUserId = searchParams.get("to");
+  const productId = searchParams.get("product");
+  const { data: attachedProduct } = useProduct(productId || undefined);
 
   // Auto-open or create conversation when ?to= is present
   useEffect(() => {
     if (!toUserId || !user || !conversations) return;
-    
-    // Find existing conversation with this user
+    // If product is requested, wait until product loads before sending attachment
+    if (productId && !attachedProduct) return;
+
+    const sendAttachmentIfAny = (conversationId: string) => {
+      if (productId && attachedProduct) {
+        const img = attachedProduct.images?.[0] || "";
+        const text = `[PRODUCT:${attachedProduct.id}|${attachedProduct.title}|${attachedProduct.price}|${attachedProduct.currency}|${img}]\nHi, is this still available?`;
+        sendMessage.mutate({ conversationId, senderId: user.id, text });
+      }
+    };
+
     const existing = conversations.find(
       c => c.participant_one === toUserId || c.participant_two === toUserId
     );
-    
+
     if (existing) {
       setSelectedConvo(existing.id);
+      sendAttachmentIfAny(existing.id);
       setSearchParams({}, { replace: true });
     } else {
-      // Create new conversation
       getOrCreateConvo.mutate(
         { userId: user.id, otherUserId: toUserId },
         {
           onSuccess: (convo) => {
             setSelectedConvo(convo.id);
+            sendAttachmentIfAny(convo.id);
             setSearchParams({}, { replace: true });
           },
         }
       );
     }
-  }, [toUserId, user, conversations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toUserId, user, conversations, productId, attachedProduct]);
 
   if (!isAuthenticated) {
     return (
