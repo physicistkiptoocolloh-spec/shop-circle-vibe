@@ -1,1 +1,7 @@
 project_id = "stgzbjxjsyntyvhdoerq"
+
+[functions.pesapal]
+verify_jwt = false
+
+[functions.sms-otp]
+verify_jwt = false
