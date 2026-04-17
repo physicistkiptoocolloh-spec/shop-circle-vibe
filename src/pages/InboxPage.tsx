@@ -4,6 +4,7 @@ import { Send, ArrowLeft, Search as SearchIcon, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConversations, useMessages, useSendMessage, useMarkMessagesRead, useGetOrCreateConversation } from "@/hooks/useMessages";
 import { useProfileById } from "@/hooks/useProfiles";
+import { useProduct } from "@/hooks/useProducts";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { MESSAGE_SHORTCUTS } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
@@ -59,16 +60,38 @@ function ChatView({ conversationId, userId, onBack }: { conversationId: string; 
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {isLoading && <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
-        {messages?.map(msg => (
-          <div key={msg.id} className={cn("flex", msg.sender_id === userId ? "justify-end" : "justify-start")}>
-            <div className={cn("max-w-[75%] px-3 py-2 rounded-2xl text-sm", msg.sender_id === userId ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm")}>
-              {msg.text}
-              <p className={cn("text-[10px] mt-1", msg.sender_id === userId ? "text-primary-foreground/60" : "text-muted-foreground")}>
-                {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </p>
+        {messages?.map(msg => {
+          const isMine = msg.sender_id === userId;
+          const m = msg.text.match(/^\[PRODUCT:([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]*)\](?:\n([\s\S]*))?$/);
+          return (
+            <div key={msg.id} className={cn("flex", isMine ? "justify-end" : "justify-start")}>
+              <div className={cn("max-w-[80%] rounded-2xl text-sm overflow-hidden", isMine ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm")}>
+                {m && (
+                  <button
+                    onClick={() => navigate(`/product/${m[1]}`)}
+                    className={cn("flex items-center gap-2 p-2 w-full text-left border-b active:scale-[0.98] transition-transform", isMine ? "border-primary-foreground/20 bg-primary-foreground/10" : "border-border bg-card")}
+                  >
+                    {m[5] ? (
+                      <img src={m[5]} alt="" className="w-12 h-12 rounded-md object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-md bg-background/50 flex-shrink-0" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className={cn("text-xs font-semibold truncate", isMine ? "text-primary-foreground" : "text-foreground")}>{m[2]}</p>
+                      <p className={cn("text-[11px] font-bold", isMine ? "text-primary-foreground/90" : "text-primary")}>{m[4]} {Number(m[3]).toLocaleString()}</p>
+                    </div>
+                  </button>
+                )}
+                <div className="px-3 py-2">
+                  {m ? (m[6] || "Hi, is this still available?") : msg.text}
+                  <p className={cn("text-[10px] mt-1", isMine ? "text-primary-foreground/60" : "text-muted-foreground")}>
+                    {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={bottomRef} />
       </div>
 
@@ -105,33 +128,47 @@ export default function InboxPage() {
   const [search, setSearch] = useState("");
   const { data: conversations, isLoading } = useConversations(user?.id);
   const getOrCreateConvo = useGetOrCreateConversation();
+  const sendMessage = useSendMessage();
   const toUserId = searchParams.get("to");
+  const productId = searchParams.get("product");
+  const { data: attachedProduct } = useProduct(productId || undefined);
 
   // Auto-open or create conversation when ?to= is present
   useEffect(() => {
     if (!toUserId || !user || !conversations) return;
-    
-    // Find existing conversation with this user
+    // If product is requested, wait until product loads before sending attachment
+    if (productId && !attachedProduct) return;
+
+    const sendAttachmentIfAny = (conversationId: string) => {
+      if (productId && attachedProduct) {
+        const img = attachedProduct.images?.[0] || "";
+        const text = `[PRODUCT:${attachedProduct.id}|${attachedProduct.title}|${attachedProduct.price}|${attachedProduct.currency}|${img}]\nHi, is this still available?`;
+        sendMessage.mutate({ conversationId, senderId: user.id, text });
+      }
+    };
+
     const existing = conversations.find(
       c => c.participant_one === toUserId || c.participant_two === toUserId
     );
-    
+
     if (existing) {
       setSelectedConvo(existing.id);
+      sendAttachmentIfAny(existing.id);
       setSearchParams({}, { replace: true });
     } else {
-      // Create new conversation
       getOrCreateConvo.mutate(
         { userId: user.id, otherUserId: toUserId },
         {
           onSuccess: (convo) => {
             setSelectedConvo(convo.id);
+            sendAttachmentIfAny(convo.id);
             setSearchParams({}, { replace: true });
           },
         }
       );
     }
-  }, [toUserId, user, conversations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toUserId, user, conversations, productId, attachedProduct]);
 
   if (!isAuthenticated) {
     return (
