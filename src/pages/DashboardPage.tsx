@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, profile, isAuthenticated } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<DashView>("main");
   const [showBoostModal, setShowBoostModal] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
@@ -32,11 +33,42 @@ export default function DashboardPage() {
   const [editingProduct, setEditingProduct] = useState<DbProduct | null>(null);
   const [editForm, setEditForm] = useState({ title: "", price: "", description: "" });
   const [contactForm, setContactForm] = useState({ subject: "", message: "" });
+  const [purchasingTier, setPurchasingTier] = useState<string | null>(null);
 
   const { data: products, isLoading } = useMyProducts(user?.id);
+  const { data: subscription } = useSubscription(user?.id);
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const createReply = useCreateReviewReply();
+
+  // Handle PesaPal payment callback
+  useEffect(() => {
+    if (searchParams.get("payment") === "success") {
+      const t = searchParams.get("type");
+      toast({ title: "Payment received!", description: `Your ${t} subscription is now active.` });
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, toast]);
+
+  const handlePurchase = async (type: "boost" | "verification", tier: any) => {
+    if (!user) return;
+    const key = `${type}-${tier.id}`;
+    setPurchasingTier(key);
+    try {
+      await startCheckout({
+        type,
+        tierId: tier.id,
+        amount: tier.price,
+        currency: tier.currency,
+        description: `${tier.name} - SokoMtaani`,
+        durationDays: type === "boost" ? 30 : 30,
+        user: { id: user.id, email: user.email, phone: profile?.phone, name: profile?.name },
+      });
+    } catch (e: any) {
+      toast({ title: "Payment failed", description: e.message, variant: "destructive" });
+      setPurchasingTier(null);
+    }
+  };
 
   const activeProducts = products?.filter(p => !p.is_archived && !p.is_sold_out) || [];
   const archivedProducts = products?.filter(p => p.is_archived) || [];
