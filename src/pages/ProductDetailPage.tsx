@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Heart, Share2, MapPin, Truck, MessageSquare, ChevronLeft, ChevronRight, X, Star, Send, ThumbsUp, Eye, Calendar, ShoppingBag, Loader2 } from "lucide-react";
+import { ArrowLeft, Heart, Share2, MapPin, Truck, MessageSquare, ChevronLeft, ChevronRight, X, Star, Send, ThumbsUp, Eye, Calendar, ShoppingBag, Loader2, Info } from "lucide-react";
 import { useProduct, useIncrementViews } from "@/hooks/useProducts";
 import { useProfileById } from "@/hooks/useProfiles";
 import { useReviews, useReviewReplies, useCreateReview, useCreateReviewReply } from "@/hooks/useReviews";
@@ -11,6 +11,8 @@ import { DangerSellerBanner } from "@/components/shared/DangerSellerBanner";
 import { StarRating } from "@/components/shared/StarRating";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
+import { productShareUrl, shareLink } from "@/lib/invite";
+import { toast } from "sonner";
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -113,12 +115,31 @@ export default function ProductDetailPage() {
 
         <p className="text-sm mt-4 text-foreground/80 leading-relaxed">{product.description}</p>
 
+        {/* First-time delivery notice */}
+        <div className="mt-4 flex gap-2 bg-accent/40 border border-primary/20 rounded-xl p-3">
+          <Info className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-foreground/80">
+            <strong>First delivery?</strong> Meet in a public place, inspect the item before paying, and use SokoMtaani chat for all communication. Avoid sending money before delivery.
+          </p>
+        </div>
+
         {/* Actions */}
         <div className="flex gap-2 mt-4">
           <button onClick={() => navigate(`/inbox?to=${product.seller_id}&product=${product.id}`)} className="flex-1 bg-primary text-primary-foreground py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all">
             <MessageSquare className="h-5 w-5" /> Message Seller
           </button>
-          <button className="p-3 rounded-xl border border-border hover:bg-accent transition-colors"><Share2 className="h-5 w-5" /></button>
+          <button
+            onClick={async () => {
+              const shared = await shareLink({
+                title: product.title,
+                text: `${product.title} — ${product.currency} ${Number(product.price).toLocaleString()} on SokoMtaani`,
+                url: productShareUrl(product.id),
+              });
+              if (!shared) toast.success("Link copied to clipboard");
+            }}
+            className="p-3 rounded-xl border border-border hover:bg-accent active:scale-95 transition-all"
+            aria-label="Share product"
+          ><Share2 className="h-5 w-5" /></button>
         </div>
 
         {/* Seller card */}
