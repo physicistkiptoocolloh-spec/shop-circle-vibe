@@ -1,15 +1,18 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Calendar, ShoppingBag, Star, MessageSquare, Loader2 } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, ShoppingBag, Star, MessageSquare, Loader2, Share2, Users } from "lucide-react";
 import { useProfileById } from "@/hooks/useProfiles";
 import { useProducts } from "@/hooks/useProducts";
+import { useAuth } from "@/contexts/AuthContext";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { VerificationBadge } from "@/components/shared/VerificationBadge";
 import { DangerSellerBanner } from "@/components/shared/DangerSellerBanner";
 import { ProductCard } from "@/components/shared/ProductCard";
+import { inviteUrl, shareLink } from "@/lib/invite";
 
 export default function ProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const { data: profile, isLoading } = useProfileById(id);
   const { data: products } = useProducts({ sellerId: id });
@@ -17,10 +20,17 @@ export default function ProfilePage() {
   if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!profile) return <div className="p-8 text-center">Profile not found</div>;
 
+  const isOwn = user?.id === profile.user_id;
+  const handleShareShop = () => shareLink({
+    title: `${profile.name || "Seller"} on SokoMtaani`,
+    text: `Check out ${profile.name || "this seller"}'s shop on SokoMtaani`,
+    url: inviteUrl(profile.referral_code),
+  });
+
   return (
     <div className="animate-fade-in pb-4">
       <div className="px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-1"><ArrowLeft className="h-5 w-5" /></button>
+        <button onClick={() => navigate(-1)} className="p-1 active:scale-95"><ArrowLeft className="h-5 w-5" /></button>
         <h1 className="font-bold text-lg">Profile</h1>
       </div>
 
@@ -40,14 +50,21 @@ export default function ProfilePage() {
             <p className="font-bold">{profile.country}</p>
             <p className="text-[10px] text-muted-foreground">Country</p>
           </div>
+          {isOwn && (
+            <div className="text-center">
+              <p className="font-bold flex items-center gap-1 justify-center"><Users className="h-3 w-3" />{profile.referral_count ?? 0}</p>
+              <p className="text-[10px] text-muted-foreground">Invited</p>
+            </div>
+          )}
         </div>
       </div>
 
       {(profile.report_count || 0) >= 3 && <div className="px-4 pb-3"><DangerSellerBanner /></div>}
 
       <div className="flex gap-2 px-4 pb-4">
-        <button onClick={() => navigate(`/inbox?to=${profile.user_id}`)} className="flex-1 bg-primary text-primary-foreground py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-1"><MessageSquare className="h-4 w-4" /> Message</button>
-        <button onClick={() => navigate(`/shop/${profile.user_id}`)} className="flex-1 border border-border py-2 rounded-xl text-sm font-semibold">View Shop</button>
+        {!isOwn && <button onClick={() => navigate(`/inbox?to=${profile.user_id}`)} className="flex-1 bg-primary text-primary-foreground py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-1 active:scale-95 transition-transform"><MessageSquare className="h-4 w-4" /> Message</button>}
+        <button onClick={() => navigate(`/shop/${profile.user_id}`)} className="flex-1 border border-border py-2 rounded-xl text-sm font-semibold active:scale-95 transition-transform">View Shop</button>
+        <button onClick={handleShareShop} className="px-3 border border-border py-2 rounded-xl text-sm font-semibold active:scale-95 transition-transform" aria-label="Share shop"><Share2 className="h-4 w-4" /></button>
       </div>
 
       <div className="px-4">

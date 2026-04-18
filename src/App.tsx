@@ -20,6 +20,8 @@ import NotificationsPage from "@/pages/NotificationsPage";
 import HelpCenterPage from "@/pages/HelpCenterPage";
 import PrivacySettingsPage from "@/pages/PrivacySettingsPage";
 import ReportProblemPage from "@/pages/ReportProblemPage";
+import KycPage from "@/pages/KycPage";
+import InviteFriendsPage from "@/pages/InviteFriendsPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +50,8 @@ const App = () => (
               <Route path="/help" element={<HelpCenterPage />} />
               <Route path="/privacy-settings" element={<PrivacySettingsPage />} />
               <Route path="/report" element={<ReportProblemPage />} />
+              <Route path="/kyc" element={<KycPage />} />
+              <Route path="/invite" element={<InviteFriendsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

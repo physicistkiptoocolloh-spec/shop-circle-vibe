@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 import type { DbProfile } from "@/hooks/useProfiles";
+import { registerPush } from "@/lib/push";
 
 interface AuthContextType {
   user: User | null;
@@ -49,8 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        // Use setTimeout to avoid Supabase auth deadlock
-        setTimeout(() => fetchProfile(session.user.id), 0);
+        const uid = session.user.id;
+        setTimeout(() => {
+          fetchProfile(uid);
+          registerPush(uid).catch(() => {});
+        }, 0);
       } else {
         setProfile(null);
       }

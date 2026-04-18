@@ -22,10 +22,21 @@ export function useConversations(userId?: string) {
 }
 
 export function useMessages(conversationId?: string) {
+  const qc = useQueryClient();
+  // Realtime subscription so new messages appear instantly
+  if (conversationId && typeof window !== "undefined") {
+    const channelName = `messages-${conversationId}`;
+    const existing = (supabase as any).getChannels?.().find((c: any) => c.topic === `realtime:${channelName}`);
+    if (!existing) {
+      supabase.channel(channelName)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
+          () => qc.invalidateQueries({ queryKey: ["messages", conversationId] }))
+        .subscribe();
+    }
+  }
   return useQuery({
     queryKey: ["messages", conversationId],
     enabled: !!conversationId,
-    refetchInterval: 3000, // Poll every 3s for new messages
     queryFn: async () => {
       const { data, error } = await supabase
         .from("messages")

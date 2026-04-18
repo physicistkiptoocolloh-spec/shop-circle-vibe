@@ -92,6 +92,39 @@ export type Database = {
         }
         Relationships: []
       }
+      kyc_verifications: {
+        Row: {
+          id: string
+          id_number: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          selfie_url: string
+          status: string
+          submitted_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          id_number: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          selfie_url: string
+          status?: string
+          submitted_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          id_number?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          selfie_url?: string
+          status?: string
+          submitted_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           conversation_id: string
@@ -160,6 +193,7 @@ export type Database = {
       phone_otps: {
         Row: {
           attempts: number
+          channel: string
           code: string
           created_at: string
           expires_at: string
@@ -170,6 +204,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          channel?: string
           code: string
           created_at?: string
           expires_at?: string
@@ -180,6 +215,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          channel?: string
           code?: string
           created_at?: string
           expires_at?: string
@@ -268,6 +304,9 @@ export type Database = {
           name: string
           phone: string | null
           phone_verified: boolean
+          referral_code: string | null
+          referral_count: number
+          referred_by: string | null
           report_count: number
           updated_at: string
           user_id: string
@@ -286,6 +325,9 @@ export type Database = {
           name?: string
           phone?: string | null
           phone_verified?: boolean
+          referral_code?: string | null
+          referral_count?: number
+          referred_by?: string | null
           report_count?: number
           updated_at?: string
           user_id: string
@@ -304,8 +346,32 @@ export type Database = {
           name?: string
           phone?: string | null
           phone_verified?: boolean
+          referral_code?: string | null
+          referral_count?: number
+          referred_by?: string | null
           report_count?: number
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          token?: string
           user_id?: string
         }
         Relationships: []
