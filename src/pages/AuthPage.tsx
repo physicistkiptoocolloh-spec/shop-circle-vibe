@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Store, Phone, Lock, ArrowRight, Loader2, ChevronDown, AlertTriangle, ShieldCheck, RefreshCw, MessageCircle } from "lucide-react";
+import { Store, Phone, Lock, ArrowRight, Loader2, ChevronDown, AlertTriangle, ShieldCheck, RefreshCw, MessageCircle, Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { COUNTRIES, AVATAR_ICONS } from "@/lib/mockData";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useDeviceFingerprint } from "@/hooks/useDeviceFingerprint";
+import { checkDeviceHasAccount } from "@/hooks/useDeviceFingerprint";
 import { sendOtp, verifyOtp, type OtpChannel } from "@/lib/sms";
 import { consumeReferralCode } from "@/lib/invite";
 
@@ -13,26 +13,26 @@ const phoneToEmail = (phone: string) => `${phone.replace(/\D/g, "")}@phone.sokom
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { refreshProfile, user } = useAuth();
-  const { duplicateDetected } = useDeviceFingerprint(user?.id);
-  const [showDupeModal, setShowDupeModal] = useState(false);
+  const { refreshProfile } = useAuth();
   const [step, setStep] = useState<"auth" | "otp" | "profile">("auth");
   const [isLogin, setIsLogin] = useState(false);
   const [channel, setChannel] = useState<OtpChannel>("whatsapp");
-  // Strict format: digits only, e.g. 254712345678 (no '+')
   const [phone, setPhone] = useState("254");
   const [password, setPassword] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [loginPromptReason, setLoginPromptReason] = useState<"device" | "registered">("registered");
 
   const [name, setName] = useState("");
   const [country, setCountry] = useState("Kenya");
   const [location, setLocation] = useState("");
   const [selectedIcon, setSelectedIcon] = useState("User");
-
-  useEffect(() => { if (duplicateDetected) setShowDupeModal(true); }, [duplicateDetected]);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (resendTimer <= 0) return;
@@ -40,7 +40,17 @@ export default function AuthPage() {
     return () => clearTimeout(t);
   }, [resendTimer]);
 
-  // Strict: digits only, country code first (e.g. 254712345678)
+  // Device fingerprint pre-check on signup (before sending OTP)
+  useEffect(() => {
+    if (isLogin || step !== "auth") return;
+    checkDeviceHasAccount().then(has => {
+      if (has) {
+        setLoginPromptReason("device");
+        setShowLoginPrompt(true);
+      }
+    });
+  }, [isLogin, step]);
+
   const normalizedPhone = phone.replace(/\D/g, "");
   const phoneValid = /^[1-9]\d{9,14}$/.test(normalizedPhone);
 
@@ -49,8 +59,23 @@ export default function AuthPage() {
     try {
       if (!phoneValid) throw new Error("Enter phone in format: 254712345678 (country code + number, digits only)");
       if (password.length < 6) throw new Error("Password must be at least 6 characters");
+
+      // Check if phone is already registered
+      const email = phoneToEmail(normalizedPhone);
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("phone", normalizedPhone)
+        .maybeSingle();
+
+      if (existing) {
+        setLoginPromptReason("registered");
+        setShowLoginPrompt(true);
+        return;
+      }
+
       const res = await sendOtp(normalizedPhone, channel);
-      setResendTimer(res.retryIn || 60);
+      setResendTimer(res.retryIn || 180);
       setStep("otp");
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
@@ -60,10 +85,10 @@ export default function AuthPage() {
     setError(""); setLoading(true);
     try {
       const res = await sendOtp(normalizedPhone, channel);
-      setResendTimer(res.retryIn || 60);
+      setResendTimer(res.retryIn || 180);
     } catch (e: any) {
       setError(e.message);
-      if (/wait/i.test(e.message)) setResendTimer(60);
+      if (/wait/i.test(e.message)) setResendTimer(180);
     } finally { setLoading(false); }
   };
 
@@ -80,12 +105,18 @@ export default function AuthPage() {
           data: { phone: normalizedPhone, phone_verified: true, referral_code: referralCode },
         },
       });
-      if (signUpErr && !/already registered/i.test(signUpErr.message)) throw signUpErr;
+      if (signUpErr) {
+        if (/already registered/i.test(signUpErr.message)) {
+          setLoginPromptReason("registered");
+          setShowLoginPrompt(true);
+          return;
+        }
+        throw signUpErr;
+      }
       const { error: siErr } = await supabase.auth.signInWithPassword({ email, password });
       if (siErr) throw new Error("Account created. Please sign in.");
       const { data: { user: u } } = await supabase.auth.getUser();
       if (u) {
-        // Resolve referral code -> user_id
         let referredBy: string | null = null;
         if (referralCode) {
           const { data: ref } = await supabase.from("profiles").select("user_id").eq("referral_code", referralCode).maybeSingle();
@@ -115,30 +146,68 @@ export default function AuthPage() {
     finally { setLoading(false); }
   };
 
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setAvatarPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const handleProfileSetup = async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
+
+      let avatarUrl: string | null = null;
+      if (avatarFile) {
+        const ext = avatarFile.name.split(".").pop() || "jpg";
+        const path = `${user.id}/avatar.${ext}`;
+        const { error: upErr } = await supabase.storage.from("avatars").upload(path, avatarFile, { upsert: true });
+        if (!upErr) {
+          const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+          avatarUrl = data.publicUrl;
+        }
+      }
+
       await supabase.from("profiles").update({
-        name, avatar_icon: selectedIcon, country, location, phone: normalizedPhone, phone_verified: true,
+        name, avatar_icon: selectedIcon, country, location,
+        phone: normalizedPhone, phone_verified: true,
+        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
       }).eq("user_id", user.id);
+
       await refreshProfile();
       navigate("/");
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
   };
 
-  if (showDupeModal) {
+  // ── Login prompt (device-already-used or phone-already-registered) ──
+  if (showLoginPrompt) {
     return (
       <div className="fixed inset-0 z-50 bg-foreground/50 flex items-center justify-center px-6">
         <div className="bg-card rounded-2xl w-full max-w-sm p-6 animate-fade-in">
-          <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
-          <h3 className="font-bold text-center mt-3 text-lg">Account Already Exists</h3>
+          <AlertTriangle className="h-12 w-12 text-primary mx-auto" />
+          <h3 className="font-bold text-center mt-3 text-lg">
+            {loginPromptReason === "device" ? "Account on this device" : "Already registered"}
+          </h3>
           <p className="text-sm text-muted-foreground text-center mt-2">
-            Another account is already registered from this device. SokoMtaani allows only one account per device.
+            {loginPromptReason === "device"
+              ? "This device already has a SokoMtaani account. Please log in instead — only one account per device is allowed."
+              : "This phone number is already registered with SokoMtaani. Sign in with your password to continue."}
           </p>
-          <button onClick={() => setShowDupeModal(false)} className="w-full mt-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold active:scale-95 transition-transform">I Understand</button>
+          <div className="flex flex-col gap-2 mt-5">
+            <button
+              onClick={() => { setIsLogin(true); setShowLoginPrompt(false); setError(""); }}
+              className="w-full py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold active:scale-95 transition-transform"
+            >Log In</button>
+            <button
+              onClick={() => setShowLoginPrompt(false)}
+              className="w-full py-2 text-xs text-muted-foreground"
+            >Cancel</button>
+          </div>
         </div>
       </div>
     );
@@ -168,7 +237,7 @@ export default function AuthPage() {
 
           <div className="mt-4 text-center text-sm">
             {resendTimer > 0 ? (
-              <p className="text-muted-foreground">Resend code in <span className="font-semibold text-foreground">{resendTimer}s</span></p>
+              <p className="text-muted-foreground">Resend code in <span className="font-semibold text-foreground">{Math.floor(resendTimer / 60)}:{String(resendTimer % 60).padStart(2, "0")}</span></p>
             ) : (
               <button onClick={handleResend} disabled={loading} className="text-primary font-medium flex items-center gap-1.5 mx-auto active:scale-95 transition-transform">
                 <RefreshCw className="h-3.5 w-3.5" /> Resend code
@@ -189,11 +258,26 @@ export default function AuthPage() {
         <p className="text-sm text-muted-foreground mt-1">Let buyers know who you are</p>
 
         <div className="mt-6 flex flex-col items-center">
-          <UserAvatar icon={selectedIcon} size="xl" />
-          <p className="text-xs text-muted-foreground mt-2">Choose an avatar icon</p>
+          <div className="relative">
+            {avatarPreview ? (
+              <img src={avatarPreview} alt="" className="h-20 w-20 rounded-full object-cover border-2 border-primary" />
+            ) : (
+              <UserAvatar icon={selectedIcon} size="xl" />
+            )}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md active:scale-95 transition-transform"
+              aria-label="Upload profile photo"
+            >
+              <Camera className="h-3.5 w-3.5" />
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">Upload a profile photo (optional) or pick an icon</p>
           <div className="flex gap-2 mt-2 flex-wrap justify-center">
             {AVATAR_ICONS.map(icon => (
-              <button key={icon} onClick={() => setSelectedIcon(icon)} className={`p-2 rounded-xl border-2 active:scale-95 transition-transform ${selectedIcon === icon ? "border-primary bg-accent" : "border-border"}`}>
+              <button key={icon} onClick={() => { setSelectedIcon(icon); setAvatarFile(null); setAvatarPreview(null); }} className={`p-2 rounded-xl border-2 active:scale-95 transition-transform ${selectedIcon === icon && !avatarPreview ? "border-primary bg-accent" : "border-border"}`}>
                 <UserAvatar icon={icon} size="sm" />
               </button>
             ))}
