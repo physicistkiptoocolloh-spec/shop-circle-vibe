@@ -306,6 +306,7 @@ export type Database = {
           phone_verified: boolean
           referral_code: string | null
           referral_count: number
+          referral_rewards_claimed: number
           referred_by: string | null
           report_count: number
           updated_at: string
@@ -327,6 +328,7 @@ export type Database = {
           phone_verified?: boolean
           referral_code?: string | null
           referral_count?: number
+          referral_rewards_claimed?: number
           referred_by?: string | null
           report_count?: number
           updated_at?: string
@@ -348,6 +350,7 @@ export type Database = {
           phone_verified?: boolean
           referral_code?: string | null
           referral_count?: number
+          referral_rewards_claimed?: number
           referred_by?: string | null
           report_count?: number
           updated_at?: string
@@ -551,6 +554,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_free_verification: { Args: { _user_id: string }; Returns: Json }
       check_daily_product_limit: {
         Args: { _user_id: string }
         Returns: boolean
@@ -562,6 +566,7 @@ export type Database = {
           match_type: string
         }[]
       }
+      claim_referral_boost_reward: { Args: { _user_id: string }; Returns: Json }
       has_active_subscription: {
         Args: { _type: string; _user_id: string }
         Returns: boolean
