@@ -168,6 +168,16 @@ export default function SellPage() {
           </div>
         </div>
       ) : null}
+      {isHighValue && !subscription?.isVerified && (
+        <div className="mx-4 mb-3 p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-start gap-2">
+          <ShieldCheck className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-primary">Verification required</p>
+            <p className="text-xs text-muted-foreground mt-1">High-value listings (vehicles, real estate, ≥{HIGH_VALUE_THRESHOLD.toLocaleString()} KES) require a verified profile to protect buyers.</p>
+            <button onClick={() => navigate("/dashboard")} className="mt-1.5 text-xs font-semibold text-primary flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> Get verified (free)</button>
+          </div>
+        </div>
+      )}
       <p className="px-4 text-xs text-muted-foreground mb-3">Upload up to 3 photos. Free accounts: 3 products/day. Boosted: unlimited.</p>
 
       <div className="px-4 space-y-4 pb-8">
@@ -234,10 +244,26 @@ export default function SellPage() {
           </button>
         </div>
 
-        <button onClick={handleSubmit} disabled={!form.title || !form.price || !canPost || checkingLimit} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+        <button onClick={handleSubmit} disabled={!form.title || !form.price || !canPost || checkingLimit} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-transform">
           <Upload className="h-5 w-5" /> List Product
         </button>
       </div>
+
+      {showVerifyGate && (
+        <div className="fixed inset-0 z-50 bg-foreground/50 flex items-center justify-center px-6" onClick={() => setShowVerifyGate(false)}>
+          <div className="bg-card rounded-2xl w-full max-w-sm p-6 animate-fade-in" onClick={e => e.stopPropagation()}>
+            <ShieldCheck className="h-12 w-12 text-primary mx-auto" />
+            <h3 className="font-bold text-center mt-3 text-lg">Verify to list this</h3>
+            <p className="text-sm text-muted-foreground text-center mt-2">
+              Listings in <strong>{form.category}</strong>{Number(form.price) >= HIGH_VALUE_THRESHOLD ? ` or above KES ${HIGH_VALUE_THRESHOLD.toLocaleString()}` : ""} require a verified profile. Verification is now free — get your badge in seconds.
+            </p>
+            <div className="flex flex-col gap-2 mt-5">
+              <button onClick={() => navigate("/dashboard")} className="w-full py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold active:scale-95 transition-transform">Get Verified Free</button>
+              <button onClick={() => setShowVerifyGate(false)} className="w-full py-2 text-xs text-muted-foreground">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
