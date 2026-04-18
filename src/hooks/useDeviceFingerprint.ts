@@ -18,21 +18,17 @@ export function useDeviceFingerprint(userId?: string) {
         const fpHash = result.visitorId;
         setFingerprint(fpHash);
 
-        // Get IP
         let ipAddr: string | null = null;
         try {
           const res = await fetch("https://api.ipify.org?format=json");
           const data = await res.json();
           ipAddr = data.ip;
           setIp(ipAddr);
-        } catch {
-          // IP fetch failed, continue without it
-        }
+        } catch { /* ignore */ }
 
         if (!userId || cancelled) return;
         setChecking(true);
 
-        // Check for duplicates using the DB function
         const { data: dupes } = await supabase.rpc("check_device_duplicate", {
           _fingerprint: fpHash,
           _ip: ipAddr || "",
@@ -44,7 +40,6 @@ export function useDeviceFingerprint(userId?: string) {
           return;
         }
 
-        // Store fingerprint for this user (upsert-like: ignore conflict)
         await supabase.from("device_fingerprints").upsert(
           {
             user_id: userId,
@@ -67,4 +62,29 @@ export function useDeviceFingerprint(userId?: string) {
   }, [userId]);
 
   return { fingerprint, ip, duplicateDetected, checking };
+}
+
+/**
+ * Check device fingerprint BEFORE signup. Returns true if this device already
+ * has an account registered, so we can prompt the user to log in instead.
+ */
+export async function checkDeviceHasAccount(): Promise<boolean> {
+  try {
+    const fp = await FingerprintJS.load();
+    const { visitorId } = await fp.get();
+    let ipAddr = "";
+    try {
+      const res = await fetch("https://api.ipify.org?format=json");
+      const data = await res.json();
+      ipAddr = data.ip || "";
+    } catch { /* ignore */ }
+
+    const { data } = await supabase.rpc("check_device_duplicate", {
+      _fingerprint: visitorId,
+      _ip: ipAddr,
+    });
+    return !!(data && data.length > 0);
+  } catch {
+    return false;
+  }
 }

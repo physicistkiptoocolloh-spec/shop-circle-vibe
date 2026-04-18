@@ -1,8 +1,9 @@
 import { Eye, MapPin, Rocket } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProfileById } from "@/hooks/useProfiles";
+import { useSubscription } from "@/hooks/useSubscription";
+import { UserAvatar } from "./UserAvatar";
 import { VerificationBadge } from "./VerificationBadge";
-import { cn } from "@/lib/utils";
 import type { DbProduct } from "@/hooks/useProducts";
 
 interface ProductCardProps {
@@ -12,6 +13,7 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const navigate = useNavigate();
   const { data: seller } = useProfileById(product.seller_id);
+  const { data: sellerSub } = useSubscription(product.seller_id);
 
   return (
     <button
@@ -49,11 +51,18 @@ export function ProductCard({ product }: ProductCardProps) {
           <MapPin className="h-3 w-3" />
           <span className="text-[11px] truncate">{product.location || "Unknown"}</span>
         </div>
-        <div className="flex items-center justify-between mt-1">
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-muted-foreground">{seller?.name || "Seller"}</span>
+        <div className="flex items-center justify-between mt-1 gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <UserAvatar
+              icon={seller?.avatar_icon || "User"}
+              avatar={seller?.avatar_url}
+              size="sm"
+              className="!h-5 !w-5"
+            />
+            <span className="text-[11px] text-muted-foreground truncate">{seller?.name || "Seller"}</span>
+            {sellerSub?.isVerified && <VerificationBadge tier={1} size={12} />}
           </div>
-          <div className="flex items-center gap-0.5 text-muted-foreground">
+          <div className="flex items-center gap-0.5 text-muted-foreground flex-shrink-0">
             <Eye className="h-3 w-3" />
             <span className="text-[10px]">{product.views}</span>
           </div>
