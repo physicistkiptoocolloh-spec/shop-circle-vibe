@@ -1,11 +1,13 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Calendar, ShoppingBag, Star, MessageSquare, Loader2 } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, ShoppingBag, Star, MessageSquare, Loader2, Share2, Users } from "lucide-react";
 import { useProfileById } from "@/hooks/useProfiles";
 import { useProducts } from "@/hooks/useProducts";
+import { useAuth } from "@/contexts/AuthContext";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { VerificationBadge } from "@/components/shared/VerificationBadge";
 import { DangerSellerBanner } from "@/components/shared/DangerSellerBanner";
 import { ProductCard } from "@/components/shared/ProductCard";
+import { inviteUrl, shareLink } from "@/lib/invite";
 
 export default function ProfilePage() {
   const { id } = useParams();

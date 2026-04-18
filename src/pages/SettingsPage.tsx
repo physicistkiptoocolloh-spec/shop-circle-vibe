@@ -14,8 +14,10 @@ export default function SettingsPage() {
       title: "Account",
       items: [
         { icon: User, label: "Edit Profile", path: "/profile/edit" },
+        { icon: UserCheck, label: "Identity Verification (KYC)", description: "Submit ID for verified badge", path: "/kyc" },
         { icon: Bell, label: "Notifications", path: "/notifications" },
         { icon: Eye, label: "Privacy Settings", path: "/privacy-settings" },
+        { icon: Gift, label: "Invite Friends", description: "Share SokoMtaani with your network", path: "/invite" },
       ],
     },
     {
@@ -23,7 +25,7 @@ export default function SettingsPage() {
       items: [
         { icon: Store, label: "Start Selling", description: "List your first product!", path: "/sell" },
         { icon: CreditCard, label: "Payment Settings", path: "/dashboard" },
-        { icon: Shield, label: "Verification", path: "/dashboard" },
+        { icon: Shield, label: "Verification & Boost", path: "/dashboard" },
       ],
     },
     {
