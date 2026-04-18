@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, User, Shield, FileText, AlertTriangle, Bell, LogOut,
-  ChevronRight, Store, CreditCard, HelpCircle, Lock, Eye
+  ChevronRight, Store, CreditCard, HelpCircle, Lock, Eye, UserCheck, Gift
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
