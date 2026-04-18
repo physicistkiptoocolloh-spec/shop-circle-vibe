@@ -54,6 +54,28 @@ export default function DashboardPage() {
     if (!user) return;
     const key = `${type}-${tier.id}`;
     setPurchasingTier(key);
+
+    // Free verification (Tier 1) — no payment, instant activation
+    if (type === "verification" && tier.price === 0) {
+      try {
+        const { data, error } = await (await import("@/integrations/supabase/client")).supabase
+          .rpc("activate_free_verification", { _user_id: user.id });
+        if (error) throw error;
+        const result = data as any;
+        if (result?.success) {
+          toast({ title: "You're verified!", description: "Your verified badge is now active for 30 days." });
+        } else {
+          toast({ title: "Already verified", description: result?.error || "", variant: "destructive" });
+        }
+        setShowVerifyModal(false);
+      } catch (e: any) {
+        toast({ title: "Failed", description: e.message, variant: "destructive" });
+      } finally {
+        setPurchasingTier(null);
+      }
+      return;
+    }
+
     toast({ title: "Processing payment...", description: "Redirecting to PesaPal secure checkout." });
     try {
       await startCheckout({
@@ -347,12 +369,12 @@ export default function DashboardPage() {
             <div className="p-4 space-y-4">
               {VERIFICATION_TIERS.map(tier => (
                 <div key={tier.id} className="border border-border rounded-xl p-4">
-                  <div className="flex items-center justify-between"><h3 className="font-bold" style={{ color: tier.color }}>{tier.name}</h3><span className="font-bold text-primary">{tier.currency} {tier.price}/mo</span></div>
-                  <p className="text-[11px] text-success mt-1">{tier.trialDays}-day free trial</p>
+                  <div className="flex items-center justify-between"><h3 className="font-bold" style={{ color: tier.color }}>{tier.name}</h3><span className="font-bold text-primary">{tier.price === 0 ? "FREE" : `${tier.currency} ${tier.price}/mo`}</span></div>
+                  <p className="text-[11px] text-success mt-1">{tier.price === 0 ? "Free for everyone — 30 days" : `${tier.trialDays}-day free trial`}</p>
                   <div className="mt-2 grid grid-cols-2 gap-1">{tier.benefits.map(b => <p key={b} className="text-[11px] text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3 text-success flex-shrink-0" /> {b}</p>)}</div>
                   <button onClick={() => handlePurchase("verification", tier)} disabled={!!purchasingTier || subscription?.isVerified} className="w-full mt-3 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-transform">
                     {purchasingTier === `verification-${tier.id}` && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {purchasingTier === `verification-${tier.id}` ? "Processing..." : subscription?.isVerified ? "Already Verified" : "Start Free Trial"}
+                    {purchasingTier === `verification-${tier.id}` ? "Processing..." : subscription?.isVerified ? "Already Verified" : tier.price === 0 ? "Activate Free" : "Start Free Trial"}
                   </button>
                 </div>
               ))}

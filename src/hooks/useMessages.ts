@@ -112,9 +112,12 @@ export function useMarkMessagesRead() {
         .eq("conversation_id", conversationId)
         .neq("sender_id", userId);
     },
-    onSuccess: (_, vars) => {
+    onSuccess: async (_, vars) => {
       qc.invalidateQueries({ queryKey: ["messages", vars.conversationId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
+      // Immediately recompute unread badge so the dot disappears on open
+      const { notifyUnreadChanged } = await import("@/hooks/useUnreadMessages");
+      notifyUnreadChanged();
     },
   });
 }

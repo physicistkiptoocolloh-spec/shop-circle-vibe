@@ -1,18 +1,21 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, Image, Loader2, CheckCircle, Rocket, TrendingUp, X, AlertTriangle } from "lucide-react";
-import { CATEGORIES } from "@/lib/mockData";
+import { ArrowLeft, Upload, Image, Loader2, CheckCircle, Rocket, TrendingUp, X, AlertTriangle, ShieldCheck } from "lucide-react";
+import { CATEGORIES, HIGH_VALUE_CATEGORIES, HIGH_VALUE_THRESHOLD } from "@/lib/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCreateProduct } from "@/hooks/useProducts";
+import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function SellPage() {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const createProduct = useCreateProduct();
+  const { data: subscription } = useSubscription(user?.id);
   const [step, setStep] = useState<"form" | "uploading" | "success">("form");
   const [progress, setProgress] = useState(0);
   const [showBoostPrompt, setShowBoostPrompt] = useState(false);
+  const [showVerifyGate, setShowVerifyGate] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [canPost, setCanPost] = useState(true);
   const [checkingLimit, setCheckingLimit] = useState(true);
@@ -59,8 +62,19 @@ export default function SellPage() {
     setImagePreviews(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const isHighValue =
+    HIGH_VALUE_CATEGORIES.includes(form.category) ||
+    Number(form.price) >= HIGH_VALUE_THRESHOLD;
+
   const handleSubmit = async () => {
     if (!user || !form.title || !form.price) return;
+
+    // Gate high-value listings behind seller verification
+    if (isHighValue && !subscription?.isVerified) {
+      setShowVerifyGate(true);
+      return;
+    }
+
     setStep("uploading");
     setProgress(10);
 
@@ -154,6 +168,16 @@ export default function SellPage() {
           </div>
         </div>
       ) : null}
+      {isHighValue && !subscription?.isVerified && (
+        <div className="mx-4 mb-3 p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-start gap-2">
+          <ShieldCheck className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-primary">Verification required</p>
+            <p className="text-xs text-muted-foreground mt-1">High-value listings (vehicles, real estate, ≥{HIGH_VALUE_THRESHOLD.toLocaleString()} KES) require a verified profile to protect buyers.</p>
+            <button onClick={() => navigate("/dashboard")} className="mt-1.5 text-xs font-semibold text-primary flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> Get verified (free)</button>
+          </div>
+        </div>
+      )}
       <p className="px-4 text-xs text-muted-foreground mb-3">Upload up to 3 photos. Free accounts: 3 products/day. Boosted: unlimited.</p>
 
       <div className="px-4 space-y-4 pb-8">
@@ -220,10 +244,26 @@ export default function SellPage() {
           </button>
         </div>
 
-        <button onClick={handleSubmit} disabled={!form.title || !form.price || !canPost || checkingLimit} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+        <button onClick={handleSubmit} disabled={!form.title || !form.price || !canPost || checkingLimit} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-transform">
           <Upload className="h-5 w-5" /> List Product
         </button>
       </div>
+
+      {showVerifyGate && (
+        <div className="fixed inset-0 z-50 bg-foreground/50 flex items-center justify-center px-6" onClick={() => setShowVerifyGate(false)}>
+          <div className="bg-card rounded-2xl w-full max-w-sm p-6 animate-fade-in" onClick={e => e.stopPropagation()}>
+            <ShieldCheck className="h-12 w-12 text-primary mx-auto" />
+            <h3 className="font-bold text-center mt-3 text-lg">Verify to list this</h3>
+            <p className="text-sm text-muted-foreground text-center mt-2">
+              Listings in <strong>{form.category}</strong>{Number(form.price) >= HIGH_VALUE_THRESHOLD ? ` or above KES ${HIGH_VALUE_THRESHOLD.toLocaleString()}` : ""} require a verified profile. Verification is now free — get your badge in seconds.
+            </p>
+            <div className="flex flex-col gap-2 mt-5">
+              <button onClick={() => navigate("/dashboard")} className="w-full py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold active:scale-95 transition-transform">Get Verified Free</button>
+              <button onClick={() => setShowVerifyGate(false)} className="w-full py-2 text-xs text-muted-foreground">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

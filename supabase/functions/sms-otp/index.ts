@@ -74,10 +74,10 @@ Deno.serve(async (req) => {
 
       if (recent) {
         const elapsed = (Date.now() - new Date(recent.last_sent_at).getTime()) / 1000;
-        if (elapsed < 60) {
+        if (elapsed < 180) {
           return new Response(JSON.stringify({
             error: "Please wait before requesting a new code",
-            retryIn: Math.ceil(60 - elapsed),
+            retryIn: Math.ceil(180 - elapsed),
           }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       }
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({ success: true, retryIn: 60, channel }), {
+      return new Response(JSON.stringify({ success: true, retryIn: 180, channel }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

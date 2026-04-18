@@ -17,6 +17,15 @@ export async function shareLink(opts: { title: string; text: string; url: string
   return false;
 }
 
+// Direct social-media share URLs (open in a new tab)
+export const socialShareUrls = (text: string, url: string) => ({
+  whatsapp: `https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`,
+  facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+  twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+  telegram: `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,
+  email: `mailto:?subject=${encodeURIComponent("Join me on SokoMtaani")}&body=${encodeURIComponent(`${text}\n\n${url}`)}`,
+});
+
 const REF_KEY = "sokomtaani.referral_code";
 export const captureReferralFromUrl = () => {
   const params = new URLSearchParams(window.location.search);
