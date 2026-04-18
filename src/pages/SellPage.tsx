@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, Image, Loader2, CheckCircle, Rocket, TrendingUp, X, AlertTriangle } from "lucide-react";
-import { CATEGORIES } from "@/lib/mockData";
+import { ArrowLeft, Upload, Image, Loader2, CheckCircle, Rocket, TrendingUp, X, AlertTriangle, ShieldCheck } from "lucide-react";
+import { CATEGORIES, HIGH_VALUE_CATEGORIES, HIGH_VALUE_THRESHOLD } from "@/lib/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCreateProduct } from "@/hooks/useProducts";
+import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function SellPage() {
