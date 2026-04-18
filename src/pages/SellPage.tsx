@@ -11,9 +11,11 @@ export default function SellPage() {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const createProduct = useCreateProduct();
+  const { data: subscription } = useSubscription(user?.id);
   const [step, setStep] = useState<"form" | "uploading" | "success">("form");
   const [progress, setProgress] = useState(0);
   const [showBoostPrompt, setShowBoostPrompt] = useState(false);
+  const [showVerifyGate, setShowVerifyGate] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [canPost, setCanPost] = useState(true);
   const [checkingLimit, setCheckingLimit] = useState(true);
@@ -60,8 +62,19 @@ export default function SellPage() {
     setImagePreviews(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const isHighValue =
+    HIGH_VALUE_CATEGORIES.includes(form.category) ||
+    Number(form.price) >= HIGH_VALUE_THRESHOLD;
+
   const handleSubmit = async () => {
     if (!user || !form.title || !form.price) return;
+
+    // Gate high-value listings behind seller verification
+    if (isHighValue && !subscription?.isVerified) {
+      setShowVerifyGate(true);
+      return;
+    }
+
     setStep("uploading");
     setProgress(10);
 
